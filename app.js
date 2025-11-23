@@ -7,7 +7,7 @@ app.use(express.json());
 
 // Verificación del webhook
 app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = "fluentia_token"; // debe coincidir con Meta
+  const VERIFY_TOKEN = "fluentia_token_123"; // debe coincidir con Meta
 
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
