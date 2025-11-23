@@ -1,32 +1,49 @@
-// Import Express.js
 const express = require('express');
+const crypto = require('crypto');
 const app = express();
 
-// Middleware para leer JSON
-app.use(express.json());
+app.use(express.json()); // Para parsear JSON en POST
 
-// Ruta para verificación del webhook
+const VERIFY_TOKEN = 'TU_TOKEN_DE_VERIFICACION_AQUI'; // El mismo del dashboard
+const APP_SECRET = 'TU_APP_SECRET_AQUI'; // De la config de WhatsApp en dashboard (para signatures)
+
+// Ruta para webhook (GET para verificación, POST para eventos)
 app.get('/webhook', (req, res) => {
-  const verify_token = "fluentia_token";
-
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode && token && mode === 'subscribe' && token === verify_token) {
-    console.log("WEBHOOK_VERIFIED");
-    res.status(200).send(challenge);
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('Webhook verificado!');
+    res.status(200).send(challenge); // ¡Esto es clave! Responde EXACTAMENTE con el challenge
   } else {
-    res.sendStatus(403);
+    res.sendStatus(403); // Token inválido
   }
 });
 
-// Ruta para recibir mensajes
 app.post('/webhook', (req, res) => {
-  console.log("Mensaje recibido:");
-  console.log(JSON.stringify(req.body, null, 2));
-  res.sendStatus(200);
+  // Verificar signature para seguridad (opcional pero recomendado)
+  const signature = req.headers['x-hub-signature-256'];
+  const expectedSignature = 'sha256=' + crypto.createHmac('sha256', APP_SECRET)
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
+  if (signature !== expectedSignature) {
+    return res.sendStatus(401); // Signature inválida
+  }
+
+  // Procesar el payload (ej: log o guarda el mensaje)
+  console.log('Payload recibido:', JSON.stringify(req.body, null, 2));
+
+  // Responde 200 OK inmediatamente (no proceses async aquí)
+  res.status(200).send('EVENT_RECEIVED');
+
+  // Aquí maneja el evento, ej: si es un mensaje, responde en WhatsApp
+  // Ejemplo: if (req.body.entry[0].changes[0].value.messages) { ... }
 });
 
-// Puerto para Render
-app.listen(10000, () => console.log("Webhook running on port 10000"));
+// Escucha en el puerto de Render
+const port = process.env.PORT || 10000;
+app.listen(port, () => {
+  console.log(`Servidor corriendo en puerto ${port}`);
+});
